@@ -8,17 +8,27 @@ class MessageRepository {
 
 	public synchronized String read() {
 		while (!hasMessage) {
-
+			try {
+				wait();
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
 		}
 		hasMessage = false;
+		notifyAll();
 		return message;
 	}
 
 	public synchronized void wirte(String message) {
 		while (hasMessage) {
-
+			try {
+				wait();
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
 		}
 		hasMessage = true;
+		notifyAll();
 		this.message = message;
 	}
 }
@@ -55,7 +65,7 @@ class MessageWriter implements Runnable {
 	}
 }
 
-class MessageReader implements Runnable{
+class MessageReader implements Runnable {
 	private MessageRepository incomingMessage;
 
 	public MessageReader(MessageRepository incomingMessage) {
@@ -67,7 +77,7 @@ class MessageReader implements Runnable{
 		Random random = new Random();
 		String latestMessage = "";
 
-		do{
+		do {
 			try {
 				Thread.sleep(random.nextInt(500, 2000));
 			} catch (InterruptedException e) {
