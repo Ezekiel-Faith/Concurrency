@@ -9,20 +9,44 @@ public class Main {
 	static class ColorThreadFactory implements ThreadFactory {
 
 		private String threadName;
+		private int colorValue = 1;
 
 		public ColorThreadFactory(ThreadColor threadColor) {
 			this.threadName = threadColor.name();
 		}
 
+		public ColorThreadFactory() {
+		}
+
 		@Override
 		public Thread newThread(Runnable r) {
 			Thread thread = new Thread(r);
-			thread.setName(threadName);
+			String name = threadName;
+			if (name == null) {
+				name = ThreadColor.values()[colorValue].name();
+			}
+
+			if(++colorValue > (ThreadColor.values().length-1)){
+				colorValue = 1;
+			}
+			thread.setName(name);
 			return thread;
 		}
 	}
 
 	public static void main(String[] args) {
+		int count = 3;
+		var multiExecutor = Executors.newFixedThreadPool(
+				count, new ColorThreadFactory()
+		);
+
+		for(int i=0; i < count; i++) {
+			multiExecutor.execute(Main::countDown);
+		}
+		multiExecutor.shutdown();
+	}
+
+	public static void singlemain(String[] args) {
 		var blueExecutor = Executors.newSingleThreadExecutor(
 				new ColorThreadFactory(ThreadColor.ANSI_BLUE)
 		);
@@ -36,7 +60,7 @@ public class Main {
 			throw new RuntimeException(e);
 		}
 
-		if(isDone) {
+		if (isDone) {
 			System.out.println("Blue finished, starting Yellow");
 
 
@@ -51,7 +75,7 @@ public class Main {
 				throw new RuntimeException(e);
 			}
 
-			if(isDone) {
+			if (isDone) {
 				System.out.println("Yellow finished, starting Red");
 				var redExecutor = Executors.newSingleThreadExecutor(
 						new ColorThreadFactory(ThreadColor.ANSI_RED)
