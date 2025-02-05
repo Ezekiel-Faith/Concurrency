@@ -60,7 +60,12 @@ public class VisitorList {
 		Runnable consumer = () -> {
 			String threadName = Thread.currentThread().getName();
 			System.out.println(threadName + " polling queue " + newVisitor.size());
-			Person visitor = newVisitor.poll();
+			Person visitor = null;
+			try {
+				visitor = newVisitor.poll(5, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
 			if(visitor != null) {
 				System.out.println(threadName + " " + visitor);
 				if(!masterList.contains(visitor)) {
@@ -73,12 +78,12 @@ public class VisitorList {
 
 		ScheduledExecutorService producerExecutor =
 				Executors.newSingleThreadScheduledExecutor();
-		producerExecutor.scheduleWithFixedDelay(producer, 0, 1, TimeUnit.SECONDS);
+		producerExecutor.scheduleWithFixedDelay(producer, 0, 3, TimeUnit.SECONDS);
 
 		ScheduledExecutorService consumerPool =
 				Executors.newScheduledThreadPool(3);
 		for(int i = 0; i < 3; i++) {
-			consumerPool.scheduleWithFixedDelay(consumer,6, 3, TimeUnit.SECONDS);
+			consumerPool.scheduleWithFixedDelay(consumer,6, 1, TimeUnit.SECONDS);
 		}
 
 		while (true) {
