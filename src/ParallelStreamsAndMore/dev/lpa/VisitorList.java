@@ -62,7 +62,7 @@ public class VisitorList {
 			System.out.println(threadName + " polling queue " + newVisitor.size());
 			Person visitor = null;
 			try {
-				visitor = newVisitor.poll(5, TimeUnit.SECONDS);
+				visitor = newVisitor.take();
 			} catch (InterruptedException e) {
 				throw new RuntimeException(e);
 			}
