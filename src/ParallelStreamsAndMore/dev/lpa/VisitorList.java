@@ -6,19 +6,27 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.stream.Stream;
 
 public class VisitorList {
+	private static final CopyOnWriteArrayList<Person> masterList;
+	static {
+		masterList = Stream.generate(Person::new)
+				.distinct()
+				.limit(2500)
+				.collect(CopyOnWriteArrayList::new,
+						CopyOnWriteArrayList::add,
+						CopyOnWriteArrayList::addAll);
+	}
+
 	private static final ArrayBlockingQueue<Person> newVisitor =
 			new ArrayBlockingQueue<>(5);
 
 	public static void main(String[] args) {
 		Runnable producer = () -> {
 			Person visitor = new Person();
-			System.out.println("Adding " + visitor);
+			System.out.println("Queueing " + visitor);
 			boolean queued = false;
 			try {
 //				queued = newVisitor.add(visitor);
@@ -31,7 +39,7 @@ public class VisitorList {
 				System.out.println("Interrupted Exception ");
 			}
 			if (queued) {
-				System.out.println(newVisitor);
+//				System.out.println(newVisitor);
 			} else {
 				System.out.println("Queue is full, cannot add " + visitor);
 				List<Person> tempList = new ArrayList<>();
@@ -49,10 +57,29 @@ public class VisitorList {
 			}
 		};
 
+		Runnable consumer = () -> {
+			String threadName = Thread.currentThread().getName();
+			System.out.println(threadName + " polling queue " + newVisitor.size());
+			Person visitor = newVisitor.poll();
+			if(visitor != null) {
+				System.out.println(threadName + " " + visitor);
+				if(!masterList.contains(visitor)) {
+					masterList.add(visitor);
+					System.out.println("---> New visitor gets coupon " + visitor);
+				}
+			}
+			System.out.println(threadName + " done " + newVisitor.size());
+		};
+
 		ScheduledExecutorService producerExecutor =
 				Executors.newSingleThreadScheduledExecutor();
-
 		producerExecutor.scheduleWithFixedDelay(producer, 0, 1, TimeUnit.SECONDS);
+
+		ScheduledExecutorService consumerPool =
+				Executors.newScheduledThreadPool(3);
+		for(int i = 0; i < 3; i++) {
+			consumerPool.scheduleWithFixedDelay(consumer,6, 3, TimeUnit.SECONDS);
+		}
 
 		while (true) {
 			try {
@@ -65,5 +92,17 @@ public class VisitorList {
 		}
 
 		producerExecutor.shutdown();
+
+		while (true) {
+			try {
+				if(!consumerPool.awaitTermination(3, TimeUnit.SECONDS)) {
+					break;
+				}
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+		}
+
+		consumerPool.shutdown();
 	}
 }
